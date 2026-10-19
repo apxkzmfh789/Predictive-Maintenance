@@ -8,3 +8,6 @@ data/truth_sim.csv
 outputs/figures/
 
 data/raw/
+
+data/ai4i_probs.npy
+data/ai4i_test_pred.csv
