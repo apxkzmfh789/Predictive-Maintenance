@@ -6,3 +6,5 @@ data/*.parquet
 data/clean_sim.csv
 data/truth_sim.csv
 outputs/figures/
+
+data/raw/
