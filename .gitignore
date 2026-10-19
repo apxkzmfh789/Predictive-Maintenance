@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 data/sensors.db
+
+data/*.parquet
+data/clean_sim.csv
+data/truth_sim.csv
+outputs/figures/
