@@ -14,3 +14,5 @@ data/ai4i_test_pred.csv
 
 data/leakage_result.csv
 data/sim_test_pred.csv
+
+data/threshold_curve.csv
