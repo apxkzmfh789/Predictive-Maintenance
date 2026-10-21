@@ -16,3 +16,4 @@ data/leakage_result.csv
 data/sim_test_pred.csv
 
 data/threshold_curve.csv
+data/secom_result.csv
