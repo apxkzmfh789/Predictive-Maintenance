@@ -1,0 +1,65 @@
+name: collect-sensor-data
+
+# 공개 저장소는 GitHub Actions 무료 (비공개는 월 2,000분 무료)
+# 1회 실행 약 1분 → 매일 실행해도 월 약 40분
+
+on:
+  schedule:
+    # UTC 기준, 21:17 UTC = 한국시간 06:17
+    # 정각은 요청이 몰려 시작이 수십 분 밀릴 수 있어 17분으로 지정
+    - cron: "17 21 * * *"
+  workflow_dispatch:        # Actions 탭에서 버튼으로 수동 실행 (테스트용)
+
+# 저장소에 커밋·푸시하려면 쓰기 권한 필요
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 센서 데이터 수집 (최근 24시간)
+        run: python src/collector.py --minutes 1440
+
+      - name: 수집 결과 확인
+        run: |
+          echo "=== data/history ==="
+          ls -la data/history | tail -5
+          python - <<'PY'
+          import glob, pandas as pd
+          files = sorted(glob.glob("data/history/*.csv"))
+          n = sum(len(pd.read_csv(f)) for f in files)
+          print(f"파일 {len(files)}개 / 누적 {n:,}행")
+          assert n > 0, "수집된 행 0"
+          PY
+
+      - name: 최근 14일 데이터로 재학습
+        continue-on-error: true      # 학습이 실패해도 수집 결과는 커밋
+        run: python src/train.py --recent 14
+
+      - name: 변경사항 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/history models
+          # 변경 없이 commit하면 실패로 표시됨 → 변경 여부 먼저 확인
+          if git diff --staged --quiet; then
+            echo "변경 없음 → 커밋 건너뜀"
+          else
+            git commit -m "chore(data): 센서 데이터 자동 수집 $(date -u +'%Y-%m-%d')"
+            git push
+          fi
