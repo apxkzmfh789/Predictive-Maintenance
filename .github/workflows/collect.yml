@@ -24,7 +24,7 @@ jobs:
       - name: 파이썬 설치
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: pip
 
       - name: 의존성 설치
