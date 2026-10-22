@@ -1,7 +1,7 @@
 """
 A8. 데이터 품질 지표 — 대시보드 '데이터 품질' 탭 숫자 계산
 
-수집 원본(data/history/*.csv)을 정제 없이 그대로 사용
+수집 원본 중 2024년 기준 기간(2024-01-01 ~ 01-14 파일)을 정제 없이 그대로 사용
 Streamlit 앱과 같은 로직이라 앱 화면 숫자와 비교해 앱 계산 검증에 사용
 """
 
@@ -11,7 +11,11 @@ import pandas as pd
 pd.set_option("display.width", 160)
 
 rule("A8-1. 수집 이력 로드")
-files = sorted((ROOT / "data" / "history").glob("*.csv"))
+files = sorted(
+    f
+    for f in (ROOT / "data" / "history").glob("*.csv")
+    if "2024-01-01" <= f.stem <= "2024-01-14"
+)
 raw = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
 raw["ts"] = pd.to_datetime(raw["ts"], errors="coerce")
 NUM = [
