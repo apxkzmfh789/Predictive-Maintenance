@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: mes-api
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=mes;encrypt=true;trustServerCertificate=true
+    username: mes_app
+    password: ${MES_DB_PASSWORD}  # 환경변수에서 읽음, 저장소에 비밀번호를 남기지 않기 위해
+
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml  # SQL을 적을 XML 파일 위치
+  configuration:
+    map-underscore-to-camel-case: true  # DB의 equipment_code → Java의 equipmentCode 자동 매핑
