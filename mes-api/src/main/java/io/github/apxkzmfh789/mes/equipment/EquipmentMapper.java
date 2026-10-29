@@ -6,4 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 public interface EquipmentMapper {
     // SELECT 결과 여러 행 -> Equipment 목록
     List<Equipment> findAll();
+
+    // 결과가 없으면 null
+    Equipment findById(int equipmentId);
 }

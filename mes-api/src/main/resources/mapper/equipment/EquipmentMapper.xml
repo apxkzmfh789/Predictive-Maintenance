@@ -3,18 +3,30 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="io.github.apxkzmfh789.mes.equipment.EquipmentMapper">
-    <!-- 컬럼 순서 = Equipment 레코드 필드 순서 -->
+
+    <!-- 공통 컬럼 목록, 순서 = Equipment 레코드 필드 순서 -->
+
+    <sql id="columns">
+        equipment_id,
+        equipment_code,
+        equipment_name,
+        location,
+        status,
+        is_active,
+        created_at,
+        updated_at
+    </sql>
+
     <select id="findAll" resultType="io.github.apxkzmfh789.mes.equipment.Equipment">
-        SELECT equipment_id,
-               equipment_code,
-               equipment_name,
-               location,
-               status,
-               is_active,
-               created_at,
-               updated_at
+        SELECT <include refid="columns"/>
         FROM equipment
         ORDER BY equipment_id
+    </select>
+
+    <select id="findById" resultType="io.github.apxkzmfh789.mes.equipment.Equipment">
+        SELECT <include refid="columns"/>
+        FROM equipment
+        WHERE equipment_id = #{equipmentId}
     </select>
 
 </mapper>
