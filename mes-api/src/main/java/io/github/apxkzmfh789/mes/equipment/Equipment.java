@@ -8,6 +8,6 @@ public record Equipment(
         String status,
         Boolean active,
         LocalDateTime createdAt,
-        LocalDateTime updateAt
+        LocalDateTime updatedAt
 ) {
 }
