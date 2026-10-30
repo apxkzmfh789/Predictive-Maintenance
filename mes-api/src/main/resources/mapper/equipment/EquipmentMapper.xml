@@ -29,5 +29,17 @@
         WHERE equipment_id = #{equipmentId}
     </select>
 
+    <select id="findByCode" resultType="io.github.apxkzmfh789.mes.equipment.Equipment">
+        SELECT <include refid="columns"/>
+        FROM equipment
+        WHERE equipment_code = #{equipmentCode}
+    </select>
+
+    <!-- status, is_active, created_at, updated_at은 DB DEFAULT로 채워짐 -->
+    <insert id="insert">
+        INSERT INTO equipment (equipment_code, equipment_name, location)
+        VALUES (#{equipmentCode}, #{equipmentName}, #{location, jdbcType=NVARCHAR})
+    </insert>
+
 </mapper>
 

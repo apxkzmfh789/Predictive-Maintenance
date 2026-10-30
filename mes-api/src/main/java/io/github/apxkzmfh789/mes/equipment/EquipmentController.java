@@ -1,9 +1,8 @@
 package io.github.apxkzmfh789.mes.equipment;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -27,5 +26,11 @@ public class EquipmentController {
     @GetMapping("/{equipmentId}")
     public Equipment findById(@PathVariable int equipmentId){
         return equipmentService.findById(equipmentId);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Equipment create(@Valid @RequestBody EquipmentCreateRequest request){
+        return equipmentService.create(request);
     }
 }

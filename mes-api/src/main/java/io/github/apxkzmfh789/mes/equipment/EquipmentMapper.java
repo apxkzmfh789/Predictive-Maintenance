@@ -9,4 +9,10 @@ public interface EquipmentMapper {
 
     // 결과가 없으면 null
     Equipment findById(int equipmentId);
+
+    // 결과가 없으면 null
+    Equipment findByCode(String equipmentCode);
+
+    // 들어간 행 수 반환
+    int insert(EquipmentCreateRequest request);
 }
