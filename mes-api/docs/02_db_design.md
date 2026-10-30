@@ -1,7 +1,7 @@
 # 2단계 DB 설계 — 예지보전 경보·보전 작업지시
 
 > 작성일: 2026-10-26 · 수정일: 2026-10-27 · 작성자: 이창우
-> 대상: `mes-api` (SQL Server 2025) · 업무 규칙(R1~R18)과 결정 D1~D13은 [01_business_design.md](01_business_design.md)
+> 대상: `mes-api` (SQL Server 2025) · 업무 규칙(R1~R18)과 결정 D1~D13, D19~D22는 [01_business_design.md](01_business_design.md)
 
 ## 1. 공통 규칙
 
