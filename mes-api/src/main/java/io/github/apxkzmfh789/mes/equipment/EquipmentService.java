@@ -39,4 +39,14 @@ public class EquipmentService {
         // DEFAULT로 채워진 값까지 포함해서 돌려주려고 다시 조회
         return equipmentMapper.findByCode((request.equipmentCode()));
     }
+
+    @Transactional
+    public Equipment update(int equipmentId, EquipmentUpdateRequest request){
+        // UPDATE 결과가 0행이면 그런 설비가 없음
+        int updated = equipmentMapper.update(equipmentId, request);
+        if (updated == 0) {
+            throw new BusinessException(ErrorCode.EQUIPMENT_NOT_FOUND, equipmentId);
+        }
+        return equipmentMapper.findById(equipmentId);
+    }
 }

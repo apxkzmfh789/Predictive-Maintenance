@@ -41,5 +41,15 @@
         VALUES (#{equipmentCode}, #{equipmentName}, #{location, jdbcType=NVARCHAR})
     </insert>
 
+    <!-- R14: 코드와 상태는 수정 대상이 아님 -->
+    <update id="update">
+        UPDATE equipment
+        SET equipment_name = #{request.equipmentName},
+            location       = #{request.location, jdbcType=NVARCHAR},
+            is_active      = #{request.active},
+            updated_at     = SYSDATETIME()
+        WHERE equipment_id = #{equipmentId}
+    </update>
+
 </mapper>
 

@@ -33,4 +33,11 @@ public class EquipmentController {
     public Equipment create(@Valid @RequestBody EquipmentCreateRequest request){
         return equipmentService.create(request);
     }
+
+    // PUT /api/equipments/{equipmentId}
+    @PutMapping("/{equipmentId}")
+    public Equipment update(@PathVariable int equipmentId,
+                            @Valid @RequestBody EquipmentUpdateRequest request){
+        return equipmentService.update(equipmentId, request);
+    }
 }

@@ -1,6 +1,7 @@
 package io.github.apxkzmfh789.mes.equipment;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface EquipmentMapper {
@@ -15,4 +16,7 @@ public interface EquipmentMapper {
 
     // 들어간 행 수 반환
     int insert(EquipmentCreateRequest request);
+
+    int update(@Param("equipmentId") int equipmentId,
+               @Param("request") EquipmentUpdateRequest request);
 }
