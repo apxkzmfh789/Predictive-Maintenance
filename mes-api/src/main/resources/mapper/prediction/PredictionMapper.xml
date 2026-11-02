@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.github.apxkzmfh789.mes.prediction.PredictionMapper">
+
+    <!-- R2: 이미 있는 (설비, 시각)이면 아무것도 안 넣음 -->
+    <insert id="insertIfAbsent">
+        INSERT INTO prediction (equipment_id, data_ts, batch_id, failure_prob)
+        SELECT #{equipmentId}, #{dataTs}, #{batchId}, #{failureProb}
+        WHERE NOT EXISTS (
+        SELECT 1
+        FROM prediction
+        WHERE equipment_id = #{equipmentId}
+        AND data_ts = #{dataTs}
+        )
+    </insert>
+
+</mapper>

@@ -15,7 +15,8 @@ public enum ErrorCode {
 
     // 400 적재 파일 형식 오류
     INVALID_CSV(HttpStatus.BAD_REQUEST, "예측 파일 형식이 올바르지 않습니다"),
-    INVALID_METRICS(HttpStatus.BAD_REQUEST, "metrics 파일 형식이 올바르지 않습니다");
+    INVALID_METRICS(HttpStatus.BAD_REQUEST, "metrics 파일 형식이 올바르지 않습니다"),
+    UNREGISTERED_EQUIPMENT(HttpStatus.BAD_REQUEST, "등록되지 않은 설비 코드가 있습니다");
 
     private final HttpStatus status;
     private final String message;

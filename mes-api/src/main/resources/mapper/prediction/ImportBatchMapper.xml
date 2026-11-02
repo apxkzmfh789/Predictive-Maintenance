@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.github.apxkzmfh789.mes.prediction.ImportBatchMapper">
+
+    <!-- INSERT와 동시에 새 batch_id를 돌려받음 (SQL Server OUTPUT) -->
+    <select id="insert" resultType="int" flushCache="true">
+        INSERT INTO import_batch (file_name, model_threshold, applied_threshold,
+                                  rows_read, rows_inserted, rows_skipped, alarms_created,
+                                  imported_by)
+        OUTPUT INSERTED.batch_id
+        VALUES (#{fileName}, #{modelThreshold}, #{appliedThreshold},
+                0, 0, 0, 0,
+                #{importedBy})
+    </select>
+
+    <update id="updateResult">
+        UPDATE import_batch
+        SET rows_read  = #{rowsRead},
+        rows_inserted  = #{rowsInserted},
+        rows_skipped   = #{rowsSkipped},
+        alarms_created = #{alarmsCreated},
+        data_from      = #{dataFrom, jdbcType=TIMESTAMP},
+        data_to        = #{dataTo, jdbcType=TIMESTAMP}
+        WHERE batch_id = #{batchId}
+    </update>
+
+</mapper>
