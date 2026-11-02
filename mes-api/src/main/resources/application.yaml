@@ -8,7 +8,7 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB      # 업로드 파일 하나 최대 용량
-      max-request_size: 20MB   # 요청 전체 최대 (CSV + metrics.json)
+      max-request-size: 20MB   # 요청 전체 최대 (CSV + metrics.json)
 
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml  # SQL을 적을 XML 파일 위치

@@ -33,7 +33,7 @@ public class MetricsReader{
 
             BigDecimal value = threshold.decimalValue().setScale(6, RoundingMode.HALF_UP);
             if (value.compareTo(BigDecimal.ZERO) < 0 || value.compareTo(BigDecimal.ONE) > 0){
-                throw new BusinessException(ErrorCode.INVALID_METRICS, "threshold가 0~1 박: " + value);
+                throw new BusinessException(ErrorCode.INVALID_METRICS, "threshold가 0~1 밖: " + value);
             }
             return value;
 
