@@ -11,7 +11,11 @@ public enum ErrorCode {
     EQUIPMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "설비를 찾을 수 없습니다"),
 
     // 409 현재 데이터와 충돌
-    EQUIPMENT_CODE_DUPLICATED(HttpStatus.CONFLICT, "이미 등록된 설비 코드입니다");
+    EQUIPMENT_CODE_DUPLICATED(HttpStatus.CONFLICT, "이미 등록된 설비 코드입니다"),
+
+    // 400 적재 파일 형식 오류
+    INVALID_CSV(HttpStatus.BAD_REQUEST, "예측 파일 형식이 올바르지 않습니다"),
+    INVALID_METRICS(HttpStatus.BAD_REQUEST, "metrics 파일 형식이 올바르지 않습니다");
 
     private final HttpStatus status;
     private final String message;

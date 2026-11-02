@@ -5,8 +5,19 @@ spring:
     url: jdbc:sqlserver://localhost:1433;databaseName=mes;encrypt=true;trustServerCertificate=true
     username: mes_app
     password: ${MES_DB_PASSWORD}  # 환경변수에서 읽음, 저장소에 비밀번호를 남기지 않기 위해
+  servlet:
+    multipart:
+      max-file-size: 10MB      # 업로드 파일 하나 최대 용량
+      max-request_size: 20MB   # 요청 전체 최대 (CSV + metrics.json)
 
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml  # SQL을 적을 XML 파일 위치
   configuration:
     map-underscore-to-camel-case: true  # DB의 equipment_code → Java의 equipmentCode 자동 매핑
+
+# 경보 판정 설정 (D13)
+mes:
+  alarm:
+    consecutive-count: 2   # 연속 몇 회 이상이면 경보 (R5)
+    cooldown-minutes: 30   # 종료 후 재발생 금지 시간 (R7)
+    # threshold-override: 0.3  # 주석 해제 시 metrics.json 대신 이 임계값 사용
