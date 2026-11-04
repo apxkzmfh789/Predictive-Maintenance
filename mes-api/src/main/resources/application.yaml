@@ -18,6 +18,6 @@ mybatis:
 # 경보 판정 설정 (D13)
 mes:
   alarm:
-    consecutive-count: 2   # 연속 몇 회 이상이면 경보 (R5)
-    cooldown-minutes: 30   # 종료 후 재발생 금지 시간 (R7)
-    # threshold-override: 0.3  # 주석 해제 시 metrics.json 대신 이 임계값 사용
+    consecutive-count: 2     # 연속 몇 회 이상이면 경보 (R5)
+    cooldown-minutes: 30     # 종료 후 재발생 금지 시간 (R7)
+    threshold-override: 0.3  # D23: 매일 바뀌는 모델 임계값 대신 운영 임계값 고정 (R1)
