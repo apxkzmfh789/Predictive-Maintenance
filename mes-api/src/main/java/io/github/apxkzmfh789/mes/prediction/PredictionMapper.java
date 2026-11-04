@@ -20,4 +20,9 @@ public interface PredictionMapper {
     List<ProbPoint> findRecentBefore(@Param("equipmentId") int equipmentId,
                                      @Param("beforeTs") LocalDateTime beforeTs,
                                      @Param("limit") int limit);
+
+    // 설비 하나의 기간 예측, 시간순 (from 이상, to 미만)
+    List<Prediction> findByRange(@Param("equipmentId") int equipmentId,
+                                 @Param("from") LocalDateTime from,
+                                 @Param("to") LocalDateTime to);
 }

@@ -25,4 +25,14 @@
         ORDER BY data_ts DESC
     </select>
 
+    <!-- 컬럼 순서 = Prediction 필드 순서, PK(equipment_id, data_ts) 범위로 읽음 -->
+    <select id="findByRange" resultType="io.github.apxkzmfh789.mes.prediction.Prediction">
+        SELECT equipment_id, data_ts, batch_id, failure_prob
+        FROM prediction
+        WHERE equipment_id = #{equipmentId}
+        AND data_ts &gt;= #{from}
+        AND data_ts &lt; #{to}
+        ORDER BY data_ts
+    </select>
+
 </mapper>
