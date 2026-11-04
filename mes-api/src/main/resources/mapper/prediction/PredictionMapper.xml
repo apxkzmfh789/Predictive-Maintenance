@@ -16,4 +16,13 @@
         )
     </insert>
 
+    <!-- 컬럼 순서 = ProbPoint 필드 순서 -->
+    <select id="findRecentBefore" resultType="io.github.apxkzmfh789.mes.alarm.ProbPoint">
+        SELECT TOP (#{limit}) data_ts, failure_prob
+        FROM prediction
+        WHERE equipment_id = #{equipmentId}
+        AND data_ts &lt; #{beforeTs}
+        ORDER BY data_ts DESC
+    </select>
+
 </mapper>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.github.apxkzmfh789.mes.alarm.AlarmMapper">
+
+    <!-- 상태값을 파라미터가 아닌 값으로 직접 써야 필터 인덱스 UX_alarm_open을 씀 -->
+    <select id="findOpenAlarmId" resultType="java.lang.Integer">
+        SELECT alarm_id
+        FROM alarm
+        WHERE equipment_id = #{equipmentId}
+        AND status IN ('OPEN', 'ACK')
+    </select>
+
+    <select id="findLastCloseDataTs" resultType="java.time.LocalDateTime">
+        SELECT TOP 1 close_data_ts
+        FROM alarm
+        WHERE equipment_id = #{equipmentId}
+        AND status = 'CLOSED'
+        ORDER BY created_at DESC, alarm_id DESC
+    </select>
+
+    <select id="insert" resultType="int" flushCache="true">
+        INSERT INTO alarm (equipment_id, batch_id, status,
+        first_detected_ts, last_detected_ts, max_prob, detect_count)
+        OUTPUT INSERTED.alarm_id
+        VALUES (#{equipmentId}, #{batchId}, 'OPEN',
+        #{result.firstDetectedTs}, #{result.lastDetectedTs},
+        #{result.maxProb}, #{result.detectCount})
+    </select>
+
+    <!-- 최고 확률은 기존 값과 비교해 큰 값, 감지 횟수는 더하기 -->
+    <update id="updateDetection">
+        UPDATE alarm
+        SET max_prob = CASE WHEN #{result.maxProb} > max_prob
+        THEN #{result.maxProb} ELSE max_prob END,
+        last_detected_ts = CASE WHEN #{result.lastDetectedTs} > last_detected_ts
+        THEN #{result.lastDetectedTs} ELSE last_detected_ts END,
+        detect_count = detect_count + #{result.detectCount}
+        WHERE alarm_id = #{alarmId}
+        AND status IN ('OPEN', 'ACK')
+    </update>
+
+</mapper>

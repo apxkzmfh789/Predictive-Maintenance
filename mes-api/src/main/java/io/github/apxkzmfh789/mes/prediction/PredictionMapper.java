@@ -1,10 +1,12 @@
 package io.github.apxkzmfh789.mes.prediction;
 
+import io.github.apxkzmfh789.mes.alarm.ProbPoint;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Mapper
 public interface PredictionMapper {
@@ -14,4 +16,8 @@ public interface PredictionMapper {
                        @Param("dataTs") LocalDateTime dataTs,
                        @Param("batchId") int batchId,
                        @Param("failureProb") BigDecimal failureProb);
+
+    List<ProbPoint> findRecentBefore(@Param("equipmentId") int equipmentId,
+                                     @Param("beforeTs") LocalDateTime beforeTs,
+                                     @Param("limit") int limit);
 }

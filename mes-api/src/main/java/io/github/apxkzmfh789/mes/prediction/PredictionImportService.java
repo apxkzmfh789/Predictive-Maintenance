@@ -1,6 +1,8 @@
 package io.github.apxkzmfh789.mes.prediction;
 
+import io.github.apxkzmfh789.mes.alarm.AlarmDetectionService;
 import io.github.apxkzmfh789.mes.alarm.AlarmProperties;
+import io.github.apxkzmfh789.mes.alarm.ProbPoint;
 import io.github.apxkzmfh789.mes.common.BusinessException;
 import io.github.apxkzmfh789.mes.common.ErrorCode;
 import io.github.apxkzmfh789.mes.equipment.Equipment;
@@ -26,19 +28,21 @@ public class PredictionImportService {
     private final EquipmentMapper equipmentMapper;
     private final ImportBatchMapper importBatchMapper;
     private final PredictionMapper predictionMapper;
+    private final AlarmDetectionService alarmDetectionService;
 
     public PredictionImportService(PredictionCsvReader csvReader,
                                    MetricsReader metricsReader,
                                    AlarmProperties alarmProperties,
                                    EquipmentMapper equipmentMapper,
                                    ImportBatchMapper importBatchMapper,
-                                   PredictionMapper predictionMapper) {
+                                   PredictionMapper predictionMapper, AlarmDetectionService alarmDetectionService) {
         this.csvReader = csvReader;
         this.metricsReader = metricsReader;
         this.alarmProperties = alarmProperties;
         this.equipmentMapper = equipmentMapper;
         this.importBatchMapper = importBatchMapper;
         this.predictionMapper = predictionMapper;
+        this.alarmDetectionService = alarmDetectionService;
     }
 
     @Transactional
@@ -94,6 +98,7 @@ public class PredictionImportService {
         int skipped = 0;
         LocalDateTime dataFrom = null;
         LocalDateTime dataTo = null;
+        Map<Integer, List<ProbPoint>> newPointsByEquipment = new HashMap<>();
 
         for (PredictionRow row : rows) {
             if (dataFrom == null || row.dataTs().isBefore(dataFrom)) {
@@ -116,13 +121,22 @@ public class PredictionImportService {
                     equipment.equipmentId(), row.dataTs(), batchId, row.failureProb());
             if (result == 1) {
                 inserted++;
+                // 경보 판정용으로 설비별로 모음
+                List<ProbPoint> points = newPointsByEquipment.get(equipment.equipmentId());
+                if (points == null) {
+                    points = new ArrayList<>();
+                    newPointsByEquipment.put(equipment.equipmentId(), points);
+                }
+                points.add(new ProbPoint(row.dataTs(), row.failureProb()));
             } else {
                 skipped++;
             }
         }
 
-        // 5단계: 새로 저장된 행으로 경보 판정 추가 예정
-        ImportResult result = new ImportResult(batchId, rows.size(), inserted, skipped, 0,
+        // 경보 판정 (R4: 새로 저장된 예측만)
+        int alarmsCreated = alarmDetectionService.detect(newPointsByEquipment, appliedThreshold, batchId);
+
+        ImportResult result = new ImportResult(batchId, rows.size(), inserted, skipped, alarmsCreated,
                 dataFrom, dataTo, modelThreshold, appliedThreshold);
         importBatchMapper.updateResult(result);
         return result;

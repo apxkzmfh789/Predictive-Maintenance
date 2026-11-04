@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.github.apxkzmfh789.mes.history.HistoryMapper">
+
+    <!-- 처음 생성될 때는 이전 상태가 없어서 null, 메모도 선택 -->
+    <insert id="insert">
+        INSERT INTO status_history (target_type, target_id, from_status, to_status, changed_by, memo)
+        VALUES (#{targetType}, #{targetId},
+        #{fromStatus, jdbcType=VARCHAR}, #{toStatus},
+        #{changedBy}, #{memo, jdbcType=NVARCHAR})
+    </insert>
+
+</mapper>
