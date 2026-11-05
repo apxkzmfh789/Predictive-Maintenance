@@ -74,6 +74,13 @@
         WHERE a.alarm_id = #{alarmId}
     </select>
 
-
-
+    <!-- 현재 상태를 WHERE에 걸어 동시 확인 방지 (R17) -->
+    <update id="ack">
+        UPDATE alarm
+        SET status = 'ACK',
+        acked_at = SYSDATETIME(),
+        acked_by = #{ackedBy}
+        WHERE alarm_id = #{alarmId}
+        AND status = 'OPEN'
+    </update>
 </mapper>

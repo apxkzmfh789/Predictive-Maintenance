@@ -30,4 +30,7 @@ public interface AlarmMapper {
 
     // 상세, 없으면 null
     Alarm findById(int alarmId);
+
+    // OPEN일 때만 ACK로, 바뀐 행 수 반환 (0이면 거부, R17)
+    int ack(@Param("alarmId") int alarmId, @Param("ackedBy") String ackedBy);
 }

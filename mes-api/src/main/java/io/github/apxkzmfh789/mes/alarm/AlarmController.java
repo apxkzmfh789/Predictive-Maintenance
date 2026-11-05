@@ -1,10 +1,7 @@
 package io.github.apxkzmfh789.mes.alarm;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -30,5 +27,12 @@ public class AlarmController {
     @GetMapping("/{alarmId}")
     public Alarm findById(@PathVariable int alarmId) {
         return alarmService.findById(alarmId);
+    }
+
+    // PATCH /api/alarms/{alarmId}/ack  본문: {"ackedBy": "이창우"}
+    @PatchMapping("/{alarmId}/ack")
+    public Alarm ack(@PathVariable int alarmId,
+                     @Valid @RequestBody AlarmAckRequest request) {
+        return alarmService.ack(alarmId, request.ackedBy());
     }
 }
