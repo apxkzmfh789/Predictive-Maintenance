@@ -33,4 +33,9 @@ public interface AlarmMapper {
 
     // OPEN일 때만 ACK로, 바뀐 행 수 반환 (0이면 거부, R17)
     int ack(@Param("alarmId") int alarmId, @Param("ackedBy") String ackedBy);
+
+    // ACK이고 진행 중 작업지시가 없을 때만 오경보 종료, 바뀐 행 수 반환 (R8, R9, R17)
+    int closeFalseAlarm(@Param("alarmId") int alarmId,
+                        @Param("closedBy") String closedBy,
+                        @Param("memo") String memo);
 }

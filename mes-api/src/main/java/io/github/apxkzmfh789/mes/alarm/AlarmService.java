@@ -53,6 +53,22 @@ public class AlarmService {
         return findById(alarmId);
     }
 
+    // 오경보 종료: ACK → CLOSED(FALSE_ALARM) (R8, R9, R17)
+    @Transactional
+    public Alarm close(int alarmId, String closedBy, String memo) {
+        int updated = alarmMapper.closeFalseAlarm(alarmId, closedBy, memo);
+        if (updated == 0) {
+            Alarm alarm = findById(alarmId);   // 없으면 404
+            // ACK인데 안 바뀌었으면 남은 조건은 작업지시뿐
+            if ("ACK".equals(alarm.status())) {
+                throw new BusinessException(ErrorCode.ACTIVE_WORK_ORDER_EXISTS, "alarmId " + alarmId);
+            }
+            throw statusConflictOrNotFound(alarmId);
+        }
+        historyMapper.insert("ALARM", alarmId, "ACK", "CLOSED", closedBy, memo);
+        return findById(alarmId);
+    }
+
     // 0건일 때 이유 구분: 경보가 없으면 404, 상태가 안 맞으면 409
     private BusinessException statusConflictOrNotFound(int alarmId) {
         Alarm alarm = findById(alarmId);   // 없으면 여기서 404

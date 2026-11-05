@@ -35,4 +35,11 @@ public class AlarmController {
                      @Valid @RequestBody AlarmAckRequest request) {
         return alarmService.ack(alarmId, request.ackedBy());
     }
+
+    // PATCH /api/alarms/{alarmId}/close  본문: {"closedBy": "이창우", "memo": "..."}
+    @PatchMapping("/{alarmId}/close")
+    public Alarm close(@PathVariable int alarmId,
+                       @Valid @RequestBody AlarmCloseRequest request) {
+        return alarmService.close(alarmId, request.closedBy(), request.memo());
+    }
 }

@@ -83,4 +83,24 @@
         WHERE alarm_id = #{alarmId}
         AND status = 'OPEN'
     </update>
+
+    <!-- 종료 시점 그 설비의 마지막 데이터 시각을 재발생 금지 기준으로 저장 (R7) -->
+    <update id="closeFalseAlarm">
+        UPDATE alarm
+        SET status = 'CLOSED',
+        closed_at = SYSDATETIME(),
+        closed_by = #{closedBy},
+        close_reason = 'FALSE_ALARM',
+        close_memo = #{memo},
+        close_data_ts = (SELECT MAX(p.data_ts)
+        FROM prediction p
+        WHERE p.equipment_id = alarm.equipment_id)
+        WHERE alarm_id = #{alarmId}
+        AND status = 'ACK'
+        AND NOT EXISTS (SELECT 1
+        FROM work_order w
+        WHERE w.alarm_id = alarm.alarm_id
+        AND w.status IN ('WAITING', 'IN_PROGRESS'))
+    </update>
+
 </mapper>

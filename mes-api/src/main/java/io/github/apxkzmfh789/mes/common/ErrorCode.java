@@ -14,6 +14,7 @@ public enum ErrorCode {
     // 409 현재 데이터와 충돌
     EQUIPMENT_CODE_DUPLICATED(HttpStatus.CONFLICT, "이미 등록된 설비 코드입니다"),
     ALARM_STATUS_CONFLICT(HttpStatus.CONFLICT, "현재 경보 상태에서는 처리할 수 없습니다"),
+    ACTIVE_WORK_ORDER_EXISTS(HttpStatus.CONFLICT, "진행 중인 작업지시가 있습니다"),
 
     // 400 적재 파일 형식 오류
     INVALID_CSV(HttpStatus.BAD_REQUEST, "예측 파일 형식이 올바르지 않습니다"),
