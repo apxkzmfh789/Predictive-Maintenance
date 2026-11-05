@@ -112,6 +112,18 @@ public class WorkOrderService {
         return workOrder;
     }
 
+    // 취소: WAITING → CANCELED. 시작 전이라 설비·경보는 그대로 (R12, R13)
+    @Transactional
+    public WorkOrder cancel(int workOrderId, WorkOrderActionRequest request) {
+        int updated = workOrderMapper.cancel(workOrderId);
+        if (updated == 0) {
+            throw statusConflictOrNotFound(workOrderId);
+        }
+        historyMapper.insert("WORK_ORDER", workOrderId, "WAITING", "CANCELED",
+                request.changedBy(), request.memo());
+        return findById(workOrderId);
+    }
+
     // 0건일 때 이유 구분: 없으면 404, 상태가 안 맞으면 409
     private BusinessException statusConflictOrNotFound(int workOrderId) {
         WorkOrder workOrder = findById(workOrderId);   // 없으면 404

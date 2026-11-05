@@ -46,4 +46,11 @@ public class WorkOrderController {
                               @Valid @RequestBody WorkOrderCompleteRequest request) {
         return workOrderService.complete(workOrderId, request);
     }
+
+    // PATCH /api/work-orders/{workOrderId}/cancel  본문: {"changedBy": "이창우", "memo": "..."}
+    @PatchMapping("/work-orders/{workOrderId}/cancel")
+    public WorkOrder cancel(@PathVariable int workOrderId,
+                            @Valid @RequestBody WorkOrderActionRequest request) {
+        return workOrderService.cancel(workOrderId, request);
+    }
 }

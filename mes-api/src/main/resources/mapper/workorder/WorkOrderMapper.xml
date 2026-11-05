@@ -71,4 +71,12 @@
         AND status = 'IN_PROGRESS'
     </update>
 
+    <update id="cancel">
+        UPDATE work_order
+        SET status = 'CANCELED',
+        canceled_at = SYSDATETIME()
+        WHERE work_order_id = #{workOrderId}
+        AND status = 'WAITING'
+    </update>
+
 </mapper>
