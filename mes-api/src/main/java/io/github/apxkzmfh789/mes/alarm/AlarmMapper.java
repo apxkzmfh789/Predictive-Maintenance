@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Mapper
 public interface AlarmMapper {
@@ -22,4 +23,11 @@ public interface AlarmMapper {
     // 열린 경보에 감지 내용 반영 (R6)
     int updateDetection(@Param("alarmId") int alarmId,
                         @Param("result") JudgeResult result);
+
+    // 목록, 조건이 null이면 그 조건은 무시
+    List<Alarm> findAll(@Param("statuses") List<String> statuses,
+                        @Param("equipmentId") Integer equipmentId);
+
+    // 상세, 없으면 null
+    Alarm findById(int alarmId);
 }

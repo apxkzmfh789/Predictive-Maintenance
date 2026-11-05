@@ -4,6 +4,14 @@
 
 <mapper namespace="io.github.apxkzmfh789.mes.alarm.AlarmMapper">
 
+    <!-- 컬럼 순서 = Alarm 레코드 필드 순서 -->
+    <sql id="columns">
+        a.alarm_id, a.equipment_id, e.equipment_code, e.equipment_name, a.batch_id, a.status,
+        a.first_detected_ts, a.last_detected_ts, a.max_prob, a.detect_count, a.created_at,
+        a.acked_at, a.acked_by, a.closed_at, a.closed_by, a.close_reason, a.close_memo,
+        a.close_data_ts
+    </sql>
+
     <!-- 상태값을 파라미터가 아닌 값으로 직접 써야 필터 인덱스 UX_alarm_open을 씀 -->
     <select id="findOpenAlarmId" resultType="java.lang.Integer">
         SELECT alarm_id
@@ -40,5 +48,32 @@
         WHERE alarm_id = #{alarmId}
         AND status IN ('OPEN', 'ACK')
     </update>
+
+    <select id="findAll" resultType="io.github.apxkzmfh789.mes.alarm.Alarm">
+        SELECT <include refid="columns"/>
+        FROM alarm a
+        JOIN equipment e ON e.equipment_id = a.equipment_id
+        <where>
+            <if test="statuses != null and !statuses.isEmpty()">
+                AND a.status IN
+                <foreach collection="statuses" item="s" open="(" separator="," close=")">
+                    #{s}
+                </foreach>
+            </if>
+            <if test="equipmentId != null">
+                AND a.equipment_id = #{equipmentId}
+            </if>
+        </where>
+        ORDER BY a.alarm_id DESC
+    </select>
+
+    <select id="findById" resultType="io.github.apxkzmfh789.mes.alarm.Alarm">
+        SELECT <include refid="columns"/>
+        FROM alarm a
+        JOIN equipment e ON e.equipment_id = a.equipment_id
+        WHERE a.alarm_id = #{alarmId}
+    </select>
+
+
 
 </mapper>
