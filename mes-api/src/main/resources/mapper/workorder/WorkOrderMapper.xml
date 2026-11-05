@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.github.apxkzmfh789.mes.workorder.WorkOrderMapper">
+
+    <!-- 컬럼 순서 = WorkOrder 레코드 필드 순서 -->
+    <sql id="columns">
+        w.work_order_id, w.alarm_id, a.equipment_id, e.equipment_code, e.equipment_name,
+        w.status, w.work_type, w.assignee, w.instruction, w.result_code, w.action_note,
+        w.created_by, w.created_at, w.started_at, w.completed_at, w.canceled_at
+    </sql>
+
+    <!-- 작업지시 → 경보 → 설비 -->
+    <sql id="from">
+        FROM work_order w
+        JOIN alarm a ON a.alarm_id = w.alarm_id
+        JOIN equipment e ON e.equipment_id = a.equipment_id
+    </sql>
+
+    <!-- 조건을 INSERT 안에 넣어 확인과 생성을 한 문장으로 (R10, R17) -->
+    <select id="insertIfAlarmAcked" resultType="java.lang.Integer" flushCache="true">
+        INSERT INTO work_order (alarm_id, work_type, assignee, instruction, created_by)
+        OUTPUT INSERTED.work_order_id
+        SELECT #{alarmId}, #{request.workType}, #{request.assignee},
+        #{request.instruction, jdbcType=NVARCHAR}, #{request.createdBy}
+        WHERE EXISTS (SELECT 1 FROM alarm
+        WHERE alarm_id = #{alarmId} AND status = 'ACK')
+        AND NOT EXISTS (SELECT 1 FROM work_order
+        WHERE alarm_id = #{alarmId} AND status IN ('WAITING', 'IN_PROGRESS'))
+    </select>
+
+    <select id="findById" resultType="io.github.apxkzmfh789.mes.workorder.WorkOrder">
+        SELECT <include refid="columns"/>
+        <include refid="from"/>
+        WHERE w.work_order_id = #{workOrderId}
+    </select>
+
+</mapper>
