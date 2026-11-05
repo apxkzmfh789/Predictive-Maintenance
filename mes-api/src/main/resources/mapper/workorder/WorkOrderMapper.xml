@@ -36,4 +36,29 @@
         WHERE w.work_order_id = #{workOrderId}
     </select>
 
+    <select id="findAll" resultType="io.github.apxkzmfh789.mes.workorder.WorkOrder">
+        SELECT <include refid="columns"/>
+        <include refid="from"/>
+        <where>
+            <if test="statuses != null and !statuses.isEmpty()">
+                AND w.status IN
+                <foreach collection="statuses" item="s" open="(" separator="," close=")">
+                    #{s}
+                </foreach>
+            </if>
+            <if test="equipmentId != null">
+                AND a.equipment_id = #{equipmentId}
+            </if>
+        </where>
+        ORDER BY w.work_order_id DESC
+    </select>
+
+    <update id="start">
+        UPDATE work_order
+        SET status = 'IN_PROGRESS',
+        started_at = SYSDATETIME()
+        WHERE work_order_id = #{workOrderId}
+        AND status = 'WAITING'
+    </update>
+
 </mapper>

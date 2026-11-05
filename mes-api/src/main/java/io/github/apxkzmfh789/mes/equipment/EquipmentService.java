@@ -2,6 +2,7 @@ package io.github.apxkzmfh789.mes.equipment;
 
 import io.github.apxkzmfh789.mes.common.BusinessException;
 import io.github.apxkzmfh789.mes.common.ErrorCode;
+import io.github.apxkzmfh789.mes.history.HistoryMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,9 +12,11 @@ import java.util.List;
 public class EquipmentService {
 
     private final EquipmentMapper equipmentMapper;
+    private final HistoryMapper historyMapper;
 
-    public EquipmentService(EquipmentMapper equipmentMapper) {
+    public EquipmentService(EquipmentMapper equipmentMapper, HistoryMapper historyMapper) {
         this.equipmentMapper = equipmentMapper;
+        this.historyMapper = historyMapper;
     }
 
     public List<Equipment> findAll() {
@@ -48,5 +51,18 @@ public class EquipmentService {
             throw new BusinessException(ErrorCode.EQUIPMENT_NOT_FOUND, equipmentId);
         }
         return equipmentMapper.findById(equipmentId);
+    }
+
+    // 설비 상태 변경 + 이력. 작업지시에서만 호출, Controller에 연결하지 않음 (R13, R14)
+    @Transactional
+    public void changeStatus(int equipmentId, String fromStatus, String toStatus,
+                             String changedBy, String memo) {
+        int updated = equipmentMapper.updateStatus(equipmentId, fromStatus, toStatus);
+        if (updated == 0) {
+            Equipment equipment = findById(equipmentId);   // 없으면 404
+            throw new BusinessException(ErrorCode.EQUIPMENT_STATUS_CONFLICT,
+                    "equipmentId " + equipmentId + ", 현재 상태 " + equipment.status());
+        }
+        historyMapper.insert("EQUIPMENT", equipmentId, fromStatus, toStatus, changedBy, memo);
     }
 }

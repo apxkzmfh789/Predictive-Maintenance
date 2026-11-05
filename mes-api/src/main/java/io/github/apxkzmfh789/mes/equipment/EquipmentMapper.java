@@ -19,4 +19,9 @@ public interface EquipmentMapper {
 
     int update(@Param("equipmentId") int equipmentId,
                @Param("request") EquipmentUpdateRequest request);
+
+    // 현재 상태가 맞을 때만 변경, 바뀐 행 수 반환 (R13, R17)
+    int updateStatus(@Param("equipmentId") int equipmentId,
+                     @Param("fromStatus") String fromStatus,
+                     @Param("toStatus") String toStatus);
 }

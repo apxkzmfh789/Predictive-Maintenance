@@ -51,5 +51,13 @@
         WHERE equipment_id = #{equipmentId}
     </update>
 
+    <!-- 작업지시 시작·완료에서만 호출 (R14: 설비 수정 API로는 상태 변경 불가) -->
+    <update id="updateStatus">
+        UPDATE equipment
+        SET status = #{toStatus},
+        updated_at = SYSDATETIME()
+        WHERE equipment_id = #{equipmentId}
+        AND status = #{fromStatus}
+    </update>
 </mapper>
 
