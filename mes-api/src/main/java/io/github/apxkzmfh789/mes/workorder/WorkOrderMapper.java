@@ -21,4 +21,8 @@ public interface WorkOrderMapper {
 
     // WAITING일 때만 IN_PROGRESS로, 바뀐 행 수 반환 (R17)
     int start(int workOrderId);
+
+    // IN_PROGRESS일 때만 DONE으로, 바뀐 행 수 반환 (R11, R17)
+    int complete(@Param("workOrderId") int workOrderId,
+                 @Param("request") WorkOrderCompleteRequest request);
 }

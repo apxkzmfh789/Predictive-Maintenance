@@ -103,4 +103,17 @@
         AND w.status IN ('WAITING', 'IN_PROGRESS'))
     </update>
 
+    <!-- 재발생 금지 기준은 오경보 종료와 같음 (R7, D22) -->
+    <update id="resolve">
+        UPDATE alarm
+        SET status = 'CLOSED',
+        closed_at = SYSDATETIME(),
+        closed_by = #{closedBy},
+        close_reason = 'RESOLVED',
+        close_data_ts = (SELECT MAX(p.data_ts)
+        FROM prediction p
+        WHERE p.equipment_id = alarm.equipment_id)
+        WHERE alarm_id = #{alarmId}
+        AND status = 'ACK'
+    </update>
 </mapper>

@@ -38,4 +38,12 @@ public class WorkOrderController {
                            @Valid @RequestBody WorkOrderActionRequest request) {
         return workOrderService.start(workOrderId, request);
     }
+
+    // PATCH /api/work-orders/{workOrderId}/complete
+    // 본문: {"changedBy": "김정비", "resultCode": "ADJUSTED", "actionNote": "..."}
+    @PatchMapping("/work-orders/{workOrderId}/complete")
+    public WorkOrder complete(@PathVariable int workOrderId,
+                              @Valid @RequestBody WorkOrderCompleteRequest request) {
+        return workOrderService.complete(workOrderId, request);
+    }
 }

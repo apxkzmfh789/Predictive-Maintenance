@@ -92,6 +92,26 @@ public class WorkOrderService {
         return workOrder;
     }
 
+    // 완료: IN_PROGRESS → DONE, 경보 CLOSED(RESOLVED), 설비 MAINTENANCE → RUNNING (R11, R13)
+    @Transactional
+    public WorkOrder complete(int workOrderId, WorkOrderCompleteRequest request) {
+        int updated = workOrderMapper.complete(workOrderId, request);
+        if (updated == 0) {
+            throw statusConflictOrNotFound(workOrderId);
+        }
+        String changedBy = request.changedBy();
+        historyMapper.insert("WORK_ORDER", workOrderId, "IN_PROGRESS", "DONE",
+                changedBy, "결과 " + request.resultCode());
+
+        // 경보 번호와 설비 번호를 알려고 조회
+        WorkOrder workOrder = findById(workOrderId);
+        String reason = "작업지시 " + workOrderId + " 완료";
+        alarmService.resolve(workOrder.alarmId(), changedBy, reason);
+        equipmentService.changeStatus(workOrder.equipmentId(), "MAINTENANCE", "RUNNING",
+                changedBy, reason);
+        return workOrder;
+    }
+
     // 0건일 때 이유 구분: 없으면 404, 상태가 안 맞으면 409
     private BusinessException statusConflictOrNotFound(int workOrderId) {
         WorkOrder workOrder = findById(workOrderId);   // 없으면 404

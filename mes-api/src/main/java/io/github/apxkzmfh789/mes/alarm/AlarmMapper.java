@@ -38,4 +38,7 @@ public interface AlarmMapper {
     int closeFalseAlarm(@Param("alarmId") int alarmId,
                         @Param("closedBy") String closedBy,
                         @Param("memo") String memo);
+
+    // 작업지시 완료로 해결 종료, ACK일 때만 (R11, R17)
+    int resolve(@Param("alarmId") int alarmId, @Param("closedBy") String closedBy);
 }

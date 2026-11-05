@@ -61,4 +61,14 @@
         AND status = 'WAITING'
     </update>
 
+    <update id="complete">
+        UPDATE work_order
+        SET status = 'DONE',
+        completed_at = SYSDATETIME(),
+        result_code = #{request.resultCode},
+        action_note = #{request.actionNote}
+        WHERE work_order_id = #{workOrderId}
+        AND status = 'IN_PROGRESS'
+    </update>
+
 </mapper>

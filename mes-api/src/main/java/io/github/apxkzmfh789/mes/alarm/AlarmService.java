@@ -69,6 +69,16 @@ public class AlarmService {
         return findById(alarmId);
     }
 
+    // 해결 종료: ACK → CLOSED(RESOLVED). 작업지시 완료에서만 호출, Controller에 연결하지 않음 (R11)
+    @Transactional
+    public void resolve(int alarmId, String closedBy, String memo) {
+        int updated = alarmMapper.resolve(alarmId, closedBy);
+        if (updated == 0) {
+            throw statusConflictOrNotFound(alarmId);
+        }
+        historyMapper.insert("ALARM", alarmId, "ACK", "CLOSED", closedBy, memo);
+    }
+
     // 0건일 때 이유 구분: 경보가 없으면 404, 상태가 안 맞으면 409
     private BusinessException statusConflictOrNotFound(int alarmId) {
         Alarm alarm = findById(alarmId);   // 없으면 여기서 404
