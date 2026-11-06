@@ -140,7 +140,7 @@ io.github.apxkzmfh789.mes
 1. SSMS에서 sa로 [db/setup.sql](db/setup.sql) 실행 — DB와 앱 계정(`mes_app`, 읽기·쓰기만) 생성. `<비밀번호>`는 직접 지정
 2. sa로 [db/schema.sql](db/schema.sql), [db/data.sql](db/data.sql) 순서로 실행 — 테이블 6개, 설비 3대
 3. 환경변수 `MES_DB_PASSWORD`에 1번 비밀번호 설정
-4. 실행
+4. 실행 (Windows cmd 기준, PowerShell은 `.\gradlew`)
 
    ```
    cd mes-api
