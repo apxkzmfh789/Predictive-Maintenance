@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.github.apxkzmfh789.mes.stats.StatsMapper">
+
+    <!-- 설비 한 행마다 지표별 기준 시각으로 따로 계산해 붙임 (설계 문서 7장) -->
+    <select id="findEquipmentStats" resultType="io.github.apxkzmfh789.mes.stats.EquipmentStats">
+        SELECT e.equipment_id, e.equipment_code, e.equipment_name,
+        ac.alarm_count,
+        cl.closed_count, cl.false_alarm_count,
+        CAST(1.0 * cl.false_alarm_count / NULLIF(cl.closed_count, 0) AS DECIMAL(4,3)) AS false_alarm_rate,
+        wo.done_count, wo.no_issue_count,
+        CAST(1.0 * wo.no_issue_count / NULLIF(wo.done_count, 0) AS DECIMAL(4,3)) AS no_issue_rate,
+        CAST(ak.avg_ack_minutes AS DECIMAL(10,1)) AS avg_ack_minutes,
+        CAST(wo.avg_action_minutes AS DECIMAL(10,1)) AS avg_action_minutes,
+        CAST(wo.downtime_minutes AS DECIMAL(10,1)) AS downtime_minutes
+        FROM equipment e
+        <!-- 경보 수: 생성 시각 -->
+        OUTER APPLY (SELECT COUNT(*) AS alarm_count
+        FROM alarm a
+        WHERE a.equipment_id = e.equipment_id
+        AND a.created_at &gt;= #{from} AND a.created_at &lt; #{to}) ac
+        <!-- 오경보율: 종료 시각 -->
+        OUTER APPLY (SELECT COUNT(*) AS closed_count,
+        COUNT(CASE WHEN a.close_reason = 'FALSE_ALARM' THEN 1 END) AS false_alarm_count
+        FROM alarm a
+        WHERE a.equipment_id = e.equipment_id
+        AND a.closed_at &gt;= #{from} AND a.closed_at &lt; #{to}) cl
+        <!-- 평균 확인 시간: 확인 시각 -->
+        OUTER APPLY (SELECT AVG(DATEDIFF(SECOND, a.created_at, a.acked_at) / 60.0) AS avg_ack_minutes
+        FROM alarm a
+        WHERE a.equipment_id = e.equipment_id
+        AND a.acked_at &gt;= #{from} AND a.acked_at &lt; #{to}) ak
+        <!-- 작업지시 지표: 완료 시각 -->
+        OUTER APPLY (SELECT COUNT(*) AS done_count,
+        COUNT(CASE WHEN w.result_code = 'NO_ISSUE' THEN 1 END) AS no_issue_count,
+        AVG(DATEDIFF(SECOND, a.acked_at, w.completed_at) / 60.0) AS avg_action_minutes,
+        ISNULL(SUM(DATEDIFF(SECOND, w.started_at, w.completed_at)), 0) / 60.0 AS downtime_minutes
+        FROM work_order w
+        JOIN alarm a ON a.alarm_id = w.alarm_id
+        WHERE a.equipment_id = e.equipment_id
+        AND w.status = 'DONE'
+        AND w.completed_at &gt;= #{from} AND w.completed_at &lt; #{to}) wo
+        ORDER BY e.equipment_id
+    </select>
+
+    <!-- 사건마다 한 줄씩 만든 뒤 날짜로 묶어 더함 -->
+    <select id="findDailyStats" resultType="io.github.apxkzmfh789.mes.stats.DailyStats">
+        SELECT d.stat_date,
+        SUM(d.alarm) AS alarm_count,
+        SUM(d.false_alarm) AS false_alarm_count,
+        SUM(d.work_order) AS work_order_count,
+        SUM(d.work_order_done) AS work_order_done_count
+        FROM (
+        SELECT CAST(created_at AS DATE) AS stat_date,
+        1 AS alarm, 0 AS false_alarm, 0 AS work_order, 0 AS work_order_done
+        FROM alarm
+        WHERE created_at &gt;= #{from} AND created_at &lt; #{to}
+        UNION ALL
+        SELECT CAST(closed_at AS DATE), 0, 1, 0, 0
+        FROM alarm
+        WHERE close_reason = 'FALSE_ALARM'
+        AND closed_at &gt;= #{from} AND closed_at &lt; #{to}
+        UNION ALL
+        SELECT CAST(created_at AS DATE), 0, 0, 1, 0
+        FROM work_order
+        WHERE created_at &gt;= #{from} AND created_at &lt; #{to}
+        UNION ALL
+        SELECT CAST(completed_at AS DATE), 0, 0, 0, 1
+        FROM work_order
+        WHERE status = 'DONE'
+        AND completed_at &gt;= #{from} AND completed_at &lt; #{to}
+        ) d
+        GROUP BY d.stat_date
+        ORDER BY d.stat_date
+    </select>
+
+</mapper>
