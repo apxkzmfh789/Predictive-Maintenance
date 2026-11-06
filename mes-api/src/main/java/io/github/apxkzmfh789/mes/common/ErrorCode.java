@@ -22,7 +22,14 @@ public enum ErrorCode {
     // 400 적재 파일 형식 오류
     INVALID_CSV(HttpStatus.BAD_REQUEST, "예측 파일 형식이 올바르지 않습니다"),
     INVALID_METRICS(HttpStatus.BAD_REQUEST, "metrics 파일 형식이 올바르지 않습니다"),
-    UNREGISTERED_EQUIPMENT(HttpStatus.BAD_REQUEST, "등록되지 않은 설비 코드가 있습니다");
+    UNREGISTERED_EQUIPMENT(HttpStatus.BAD_REQUEST, "등록되지 않은 설비 코드가 있습니다"),
+
+    // Spring이 막는 요청
+    API_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 주소가 없습니다"),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 요청 방식입니다"),
+
+    // 500 예상 못 한 오류
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다");
 
     private final HttpStatus status;
     private final String message;
