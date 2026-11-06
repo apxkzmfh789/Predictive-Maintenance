@@ -12,4 +12,15 @@
         #{changedBy}, #{memo, jdbcType=NVARCHAR})
     </insert>
 
+    <select id="findByTarget" resultType="io.github.apxkzmfh789.mes.history.History">
+        SELECT history_id, target_type, target_id, from_status, to_status,
+        changed_by, changed_at, memo
+        FROM status_history
+        WHERE target_type = #{targetType}
+        <if test="targetId != null">
+            AND target_id = #{targetId}
+        </if>
+        ORDER BY history_id
+    </select>
+
 </mapper>
