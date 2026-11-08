@@ -1,0 +1,7 @@
+# 빌드 결과
+bin/
+obj/
+
+# Visual Studio 개인 설정
+.vs/
+*.user
