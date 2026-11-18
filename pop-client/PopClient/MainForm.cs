@@ -26,6 +26,7 @@ namespace PopClient
             btnAck.Click += BtnAck_Click;
             btnCloseAlarm.Click += BtnCloseAlarm_Click;
             btnCreateWorkOrder.Click += BtnCreateWorkOrder_Click;
+            btnWorkOrders.Click += BtnWorkOrders_Click;
 
             UpdateButtons();
             refreshTimer.Start();
@@ -93,6 +94,19 @@ namespace PopClient
                 var workOrder = await api.CreateWorkOrderAsync(alarm.AlarmId, request);
                 MessageBox.Show($"작업지시 {workOrder.WorkOrderId} 생성 (담당 {workOrder.Assignee})", "작업지시");
             });
+        }
+
+        // 작업지시 창 열기: 같은 작업자 이름으로 처리, 닫으면 경보 목록 갱신
+        private async void BtnWorkOrders_Click(object? sender, EventArgs e)
+        {
+            var worker = RequireWorker();
+            if (worker == null) return;
+
+            using (var form = new WorkOrderForm(api, worker))
+            {
+                form.ShowDialog(this);
+            }
+            await LoadAlarmsAsync();
         }
 
         // 버튼 동작 공통: 처리 중엔 버튼 잠금, 실패하면 서버 메시지 팝업, 끝나면 목록 갱신
