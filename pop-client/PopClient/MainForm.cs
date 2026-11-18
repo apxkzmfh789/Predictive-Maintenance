@@ -13,15 +13,25 @@ namespace PopClient
             InitializeComponent();
             SetupColumns();
 
-            // 이벤트 연결: 창이 뜰 때, 새로고침 버튼, 10초 타이머 → 전부 경보 다시 불러오기
+            // 목록 갱신: 창이 뜰 때, 새로고침 버튼, 10초 타이머
             Load += MainForm_Load;
             btnRefresh.Click += BtnRefresh_Click;
             refreshTimer.Tick += RefreshTimer_Tick;
+
+            // 표
             dgvAlarms.CellFormatting += DgvAlarms_CellFormatting;
+            dgvAlarms.SelectionChanged += DgvAlarms_SelectionChanged;
+
+            // 경보 처리 버튼
+            btnAck.Click += BtnAck_Click;
+            btnCloseAlarm.Click += BtnCloseAlarm_Click;
+            btnCreateWorkOrder.Click += BtnCreateWorkOrder_Click;
+
+            UpdateButtons();
             refreshTimer.Start();
         }
 
-        // ---------- 이벤트 ----------
+        // ---------- 목록 갱신 이벤트 ----------
 
         private async void MainForm_Load(object? sender, EventArgs e) => await LoadAlarmsAsync();
 
@@ -35,6 +45,95 @@ namespace PopClient
             if (e.RowIndex < 0 || e.CellStyle == null) return;
             if (dgvAlarms.Rows[e.RowIndex].DataBoundItem is not Alarm alarm) return;
             e.CellStyle.BackColor = alarm.Status == "OPEN" ? Color.MistyRose : Color.LightYellow;
+        }
+
+        private void DgvAlarms_SelectionChanged(object? sender, EventArgs e) => UpdateButtons();
+
+        // ---------- 경보 처리 버튼 ----------
+
+        // 확인: OPEN → ACK
+        private async void BtnAck_Click(object? sender, EventArgs e)
+        {
+            var alarm = SelectedAlarm();
+            var worker = RequireWorker();
+            if (alarm == null || worker == null) return;
+
+            await RunActionAsync(() => api.AckAsync(alarm.AlarmId, worker));
+        }
+
+        // 오경보 종료: 메모 필수 (R9)
+        private async void BtnCloseAlarm_Click(object? sender, EventArgs e)
+        {
+            var alarm = SelectedAlarm();
+            var worker = RequireWorker();
+            if (alarm == null || worker == null) return;
+
+            using var dialog = new MemoDialog("오경보 종료",
+                $"경보 {alarm.AlarmId} ({alarm.EquipmentCode})를 오경보로 종료합니다.\n종료 사유를 입력하세요.",
+                required: true);
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            string memo = dialog.Memo!;
+
+            await RunActionAsync(() => api.CloseAlarmAsync(alarm.AlarmId, worker, memo));
+        }
+
+        // 작업지시 생성: ACK 경보에서만 (R10)
+        private async void BtnCreateWorkOrder_Click(object? sender, EventArgs e)
+        {
+            var alarm = SelectedAlarm();
+            var worker = RequireWorker();
+            if (alarm == null || worker == null) return;
+
+            using var dialog = new WorkOrderDialog($"작업지시 생성 - 경보 {alarm.AlarmId} ({alarm.EquipmentCode})");
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            var request = new WorkOrderCreateRequest(dialog.WorkType, dialog.Assignee, dialog.Instruction, worker);
+
+            await RunActionAsync(async () =>
+            {
+                var workOrder = await api.CreateWorkOrderAsync(alarm.AlarmId, request);
+                MessageBox.Show($"작업지시 {workOrder.WorkOrderId} 생성 (담당 {workOrder.Assignee})", "작업지시");
+            });
+        }
+
+        // 버튼 동작 공통: 처리 중엔 버튼 잠금, 실패하면 서버 메시지 팝업, 끝나면 목록 갱신
+        private async Task RunActionAsync(Func<Task> action)
+        {
+            bottomPanel.Enabled = false;
+            try
+            {
+                await action();
+            }
+            catch (ApiException ex)
+            {
+                MessageBox.Show(ex.Message, "처리 실패", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                bottomPanel.Enabled = true;
+                await LoadAlarmsAsync();
+            }
+        }
+
+        // 작업자 이름 (R16: 로그인 대신 이름으로 기록). 비어 있으면 안내 후 null
+        private string? RequireWorker()
+        {
+            var name = txtWorker.Text.Trim();
+            if (name.Length == 0)
+            {
+                MessageBox.Show("작업자 이름을 먼저 입력하세요", "작업자", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                txtWorker.Focus();
+                return null;
+            }
+            return name;
+        }
+
+        // 상태에 맞는 버튼만 켬 (R8). 화면 정보가 오래됐을 수 있어 최종 판단은 서버가 함
+        private void UpdateButtons()
+        {
+            var status = SelectedAlarm()?.Status;
+            btnAck.Enabled = status == "OPEN";
+            btnCloseAlarm.Enabled = status == "ACK";
+            btnCreateWorkOrder.Enabled = status == "ACK";
         }
 
         // ---------- 경보 목록 ----------
@@ -59,6 +158,7 @@ namespace PopClient
             finally
             {
                 loading = false;
+                UpdateButtons();
             }
         }
 
