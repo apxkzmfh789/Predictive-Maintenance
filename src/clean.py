@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+import bisect
+
 import numpy as np
 import pandas as pd
 
@@ -85,47 +87,98 @@ def snap_timestamp(df: pd.DataFrame, max_jitter_sec: int = MAX_JITTER_SEC) -> pd
     단순 반올림은 30초 넘게 흔들린 행을 이웃 분으로 보내 진짜 행과 겹치게 만듦.
     1) 정각(초=0)으로 들어온 행은 제자리로 확정
     2) 흔들린 행은 max_jitter_sec 안에서 가장 가까운 빈 분에 배정
-    3) 값이 완전히 같은 행(재전송)은 같은 분에 묶어 3단계에서 하나만 남김
+    3) 값이 완전히 같고 시각 차이가 max_jitter_sec 이내인 행만 재전송으로 보고 같은 분에 묶음
+       (3단계에서 하나만 남김). 설비 정지처럼 값이 몇 분간 같은 정상 행은 묶지 않음
+    4) 정각 행끼리는 따로 둠. 단, 한 분에 값이 다른 정각 행이 둘 이상 겹치면(±60초 흔들림),
+       90초 안에 같은 값의 다른 정각 행이 있는 쪽을 재전송으로 봄
     """
     df = _stable_order(df.copy())
     if df.empty:
         return df
     vals = ["machine_id"] + [c for c in SENSOR_COLS + ["machine_failure"] if c in df.columns]
     key = pd.util.hash_pandas_object(df[vals], index=False).to_numpy()
-    ts = df["ts"].to_numpy()
+    ts_ns = df["ts"].to_numpy().astype("datetime64[ns]").astype(np.int64)
     mid = df["machine_id"].to_numpy()
     on_minute = (df["ts"] == df["ts"].dt.floor("min")).to_numpy()
+    MIN = 60 * 10**9
+    limit = max_jitter_sec * 10**9
 
-    group_min: dict = {}  # 같은 값 묶음 → 확정된 분
-    occupied: set = set()  # (설비, 분)
-    for k, m, t in zip(key[on_minute], mid[on_minute], ts[on_minute]):
-        if k not in group_min:
-            group_min[k] = t
-            occupied.add((m, t))
+    group_minute: dict = {}  # 묶음 id → 배정된 분(ns), 흔들린 묶음은 배정 전 None
+    group_of = [None] * len(df)
+    by_key: dict = {}  # 값 key → (시각 목록, 묶음 id 목록), 시각순 정렬 유지
 
-    pending = []  # 아직 분이 정해지지 않은 흔들린 묶음 (대표 행 하나씩)
-    seen = set(group_min)
-    for k, m, t in zip(key[~on_minute], mid[~on_minute], ts[~on_minute]):
-        if k in seen:
+    def nearest_group(k, t):
+        """같은 값 key 중 t에서 limit 이내인 가장 가까운 묶음"""
+        if k not in by_key:
+            return None
+        times, gids = by_key[k]
+        lo = bisect.bisect_left(times, t - limit)
+        best = None
+        for j in range(lo, len(times)):
+            if times[j] > t + limit:
+                break
+            d = abs(times[j] - t)
+            if best is None or d < best[0]:
+                best = (d, gids[j])
+        return None if best is None else best[1]
+
+    def add_group(k, t, gid, minute):
+        group_minute[gid] = minute
+        times, gids = by_key.setdefault(k, ([], []))
+        j = bisect.bisect_right(times, t)
+        times.insert(j, t)
+        gids.insert(j, gid)
+
+    anchors = np.flatnonzero(on_minute)
+    keys_at: dict = {}
+    for i in anchors:
+        keys_at.setdefault((mid[i], ts_ns[i]), set()).add(key[i])
+    contested = {mk for mk, ks in keys_at.items() if len(ks) > 1}
+
+    # 정각 행: 겹치지 않은 분 먼저 확정
+    for i in anchors:
+        if (mid[i], ts_ns[i]) in contested:
             continue
-        seen.add(k)
-        t = pd.Timestamp(t)
-        off = abs((t - t.round("min")).total_seconds())
-        pending.append((off, m, t, k))
+        gid = ("a", mid[i], ts_ns[i], key[i])
+        if gid not in group_minute:
+            add_group(key[i], ts_ns[i], gid, ts_ns[i])
+        group_of[i] = gid
+    # 겹친 분의 정각 행: 90초 안에 같은 값 정각 행이 있으면 그 재전송으로 봄
+    for i in anchors:
+        if (mid[i], ts_ns[i]) not in contested:
+            continue
+        g = nearest_group(key[i], ts_ns[i])
+        if g is None:
+            g = ("a", mid[i], ts_ns[i], key[i])
+            if g not in group_minute:
+                add_group(key[i], ts_ns[i], g, ts_ns[i])
+        group_of[i] = g
+
+    # 흔들린 행: 90초 안에 같은 값 묶음이 있으면 합류, 없으면 새 묶음
+    pending = []
+    for i in np.flatnonzero(~on_minute):
+        g = nearest_group(key[i], ts_ns[i])
+        if g is None:
+            g = ("j", i)
+            add_group(key[i], ts_ns[i], g, None)
+            t = int(ts_ns[i])
+            off = min(t % MIN, MIN - t % MIN)  # 가장 가까운 정각까지 거리
+            pending.append((off, mid[i], t, g))
+        group_of[i] = g
+
+    occupied = {(m, v) for (m, v) in ((g[1], mn) for g, mn in group_minute.items() if g[0] == "a")}
     pending.sort(key=lambda x: (x[0], x[1], x[2]))  # 분에 가까운 행부터 배정
-
-    limit = pd.Timedelta(seconds=max_jitter_sec)
-    for _, m, t, k in pending:
-        base = t.floor("min")
-        cands = [base + pd.Timedelta(minutes=s) for s in (-1, 0, 1, 2)]
+    for _, m, t, g in pending:
+        base = t - t % MIN
+        cands = [base + s * MIN for s in (-1, 0, 1, 2)]
         cands = sorted((c for c in cands if abs(c - t) <= limit), key=lambda c: (abs(c - t), c))
-        chosen = next((c for c in cands if (m, c.to_datetime64()) not in occupied), None)
+        chosen = next((c for c in cands if (m, c) not in occupied), None)
         if chosen is None:  # 빈 분이 없으면 반올림 (3단계에서 겹친 행 정리)
-            chosen = t.round("min")
-        group_min[k] = chosen.to_datetime64()
-        occupied.add((m, chosen.to_datetime64()))
+            chosen = int(pd.Timestamp(t).round("min").value)
+        group_minute[g] = chosen
+        occupied.add((m, chosen))
 
-    df["ts"] = pd.to_datetime([group_min[k] for k in key])
+    df["ts"] = pd.to_datetime(np.array([group_minute[g] for g in group_of], dtype=np.int64))
     return df
 
 

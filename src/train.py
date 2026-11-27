@@ -119,6 +119,8 @@ def main(argv: list[str] | None = None) -> int:
         f"\ntrain {cut:,} / test {len(d) - cut:,} | "
         f"train 양성률 {y[:cut].mean() * 100:.2f}% / test {y[cut:].mean() * 100:.2f}%"
     )
+    if len(np.unique(y[:cut])) < 2:
+        raise SystemExit("학습 구간에 고장(양성) 또는 정상 행이 없어 학습 불가 → 수집 기간 확대 필요")
 
     mdl = RandomForestClassifier(
         n_estimators=300, random_state=SEED, n_jobs=-1, min_samples_leaf=2
@@ -141,14 +143,23 @@ def main(argv: list[str] | None = None) -> int:
             out.append(fn * COST_FN + fp * COST_FP)
         return out
 
-    oof_p, oof_y = [], []
+    oof_p, oof_y, skipped = [], [], 0
     for tr_idx, va_idx in TimeSeriesSplit(n_splits=CV_SPLITS).split(X[:cut]):
+        if len(np.unique(y[tr_idx])) < 2:  # 고장이 없는 겹은 확률을 낼 수 없어 건너뜀
+            skipped += 1
+            continue
         m_cv = RandomForestClassifier(
             n_estimators=300, random_state=SEED, n_jobs=-1, min_samples_leaf=2
         )
         m_cv.fit(X[tr_idx], y[tr_idx])
         oof_p.append(m_cv.predict_proba(X[va_idx])[:, 1])
         oof_y.append(y[va_idx])
+    if not oof_p:
+        raise SystemExit(
+            f"교차검증 {CV_SPLITS}겹 모두 학습 겹에 고장이 없어 임계값을 정할 수 없음 → 수집 기간 확대 필요"
+        )
+    if skipped:
+        print(f"[주의] 교차검증 {CV_SPLITS}겹 중 {skipped}겹은 학습 겹에 고장이 없어 건너뜀")
     th = float(ths[int(np.argmin(cost_curve(np.concatenate(oof_y), np.concatenate(oof_p))))])
     costs = cost_curve(yt, p)  # test 비용은 확정된 임계값으로 계산
     i = int(np.argmin(np.abs(ths - th)))
