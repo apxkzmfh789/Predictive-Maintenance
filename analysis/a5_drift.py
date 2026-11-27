@@ -29,7 +29,11 @@ def prep(df, horizon=HORIZON):
     df = F.make_horizon_label(df, horizon=horizon)
     df = F.build(df, windows=(10, 30, 60), shift_one=True)
     feat = [c for c in F.feature_columns(df) if c not in ("y", "machine_failure")]
-    d = df.dropna(subset=feat + ["y"]).sort_values("ts").reset_index(drop=True)
+    d = (
+        df.dropna(subset=feat + ["y"])
+        .sort_values(["ts", "machine_id"], kind="mergesort")
+        .reset_index(drop=True)
+    )
     return d, feat
 
 

@@ -2,7 +2,7 @@
 정제 파이프라인 (오염 주입의 역순으로 처리)
 
 1) 타입 강제
-2) 타임스탬프 분 단위 스냅
+2) 타임스탬프 분 단위 정렬 (흔들린 행은 가까운 빈 분으로)
 3) 중복 제거 (machine_id, ts 기준)
 4) 단위 통일 (온도 ℃→K, 진동 m/s²→mm/s)
 5) 물리 범위 밖 값 → NaN (행은 유지)
@@ -15,6 +15,8 @@
 """
 
 from __future__ import annotations
+
+import bisect
 
 import numpy as np
 import pandas as pd
@@ -70,19 +72,123 @@ def coerce_types(df: pd.DataFrame) -> pd.DataFrame:
     return df.dropna(subset=["ts", "machine_id"])
 
 
-def snap_timestamp(df: pd.DataFrame, freq: str = "min") -> pd.DataFrame:
-    """초 단위로 흔들린 ts를 분 단위로 반올림"""
-    df = df.copy()
-    df["ts"] = df["ts"].dt.round(freq)
+MAX_JITTER_SEC = 90  # 시각 흔들림 허용 범위. 이보다 멀리 떨어진 분에는 배정하지 않음
+
+
+def _stable_order(df: pd.DataFrame) -> pd.DataFrame:
+    """입력 순서와 무관하게 항상 같은 순서로 정렬 (환경이 달라도 결과가 같도록)"""
+    keys = ["machine_id", "ts"] + [c for c in SENSOR_COLS if c in df.columns]
+    return df.sort_values(keys, kind="mergesort", na_position="last")
+
+
+def snap_timestamp(df: pd.DataFrame, max_jitter_sec: int = MAX_JITTER_SEC) -> pd.DataFrame:
+    """초 단위로 흔들린 ts를 분 격자에 맞춤
+
+    단순 반올림은 30초 넘게 흔들린 행을 이웃 분으로 보내 진짜 행과 겹치게 만듦.
+    1) 정각(초=0)으로 들어온 행은 제자리로 확정
+    2) 흔들린 행은 max_jitter_sec 안에서 가장 가까운 빈 분에 배정
+    3) 값이 완전히 같고 시각 차이가 max_jitter_sec 이내인 행만 재전송으로 보고 같은 분에 묶음
+       (3단계에서 하나만 남김). 설비 정지처럼 값이 몇 분간 같은 정상 행은 묶지 않음
+    4) 정각 행끼리는 따로 둠. 단, 한 분에 값이 다른 정각 행이 둘 이상 겹치면(±60초 흔들림),
+       90초 안에 같은 값의 다른 정각 행이 있는 쪽을 재전송으로 봄
+    """
+    df = _stable_order(df.copy())
+    if df.empty:
+        return df
+    vals = ["machine_id"] + [c for c in SENSOR_COLS + ["machine_failure"] if c in df.columns]
+    key = pd.util.hash_pandas_object(df[vals], index=False).to_numpy()
+    ts_ns = df["ts"].to_numpy().astype("datetime64[ns]").astype(np.int64)
+    mid = df["machine_id"].to_numpy()
+    on_minute = (df["ts"] == df["ts"].dt.floor("min")).to_numpy()
+    MIN = 60 * 10**9
+    limit = max_jitter_sec * 10**9
+
+    group_minute: dict = {}  # 묶음 id → 배정된 분(ns), 흔들린 묶음은 배정 전 None
+    group_of = [None] * len(df)
+    by_key: dict = {}  # 값 key → (시각 목록, 묶음 id 목록), 시각순 정렬 유지
+
+    def nearest_group(k, t):
+        """같은 값 key 중 t에서 limit 이내인 가장 가까운 묶음"""
+        if k not in by_key:
+            return None
+        times, gids = by_key[k]
+        lo = bisect.bisect_left(times, t - limit)
+        best = None
+        for j in range(lo, len(times)):
+            if times[j] > t + limit:
+                break
+            d = abs(times[j] - t)
+            if best is None or d < best[0]:
+                best = (d, gids[j])
+        return None if best is None else best[1]
+
+    def add_group(k, t, gid, minute):
+        group_minute[gid] = minute
+        times, gids = by_key.setdefault(k, ([], []))
+        j = bisect.bisect_right(times, t)
+        times.insert(j, t)
+        gids.insert(j, gid)
+
+    anchors = np.flatnonzero(on_minute)
+    keys_at: dict = {}
+    for i in anchors:
+        keys_at.setdefault((mid[i], ts_ns[i]), set()).add(key[i])
+    contested = {mk for mk, ks in keys_at.items() if len(ks) > 1}
+
+    # 정각 행: 겹치지 않은 분 먼저 확정
+    for i in anchors:
+        if (mid[i], ts_ns[i]) in contested:
+            continue
+        gid = ("a", mid[i], ts_ns[i], key[i])
+        if gid not in group_minute:
+            add_group(key[i], ts_ns[i], gid, ts_ns[i])
+        group_of[i] = gid
+    # 겹친 분의 정각 행: 90초 안에 같은 값 정각 행이 있으면 그 재전송으로 봄
+    for i in anchors:
+        if (mid[i], ts_ns[i]) not in contested:
+            continue
+        g = nearest_group(key[i], ts_ns[i])
+        if g is None:
+            g = ("a", mid[i], ts_ns[i], key[i])
+            if g not in group_minute:
+                add_group(key[i], ts_ns[i], g, ts_ns[i])
+        group_of[i] = g
+
+    # 흔들린 행: 90초 안에 같은 값 묶음이 있으면 합류, 없으면 새 묶음
+    pending = []
+    for i in np.flatnonzero(~on_minute):
+        g = nearest_group(key[i], ts_ns[i])
+        if g is None:
+            g = ("j", i)
+            add_group(key[i], ts_ns[i], g, None)
+            t = int(ts_ns[i])
+            off = min(t % MIN, MIN - t % MIN)  # 가장 가까운 정각까지 거리
+            pending.append((off, mid[i], t, g))
+        group_of[i] = g
+
+    occupied = {(m, v) for (m, v) in ((g[1], mn) for g, mn in group_minute.items() if g[0] == "a")}
+    pending.sort(key=lambda x: (x[0], x[1], x[2]))  # 분에 가까운 행부터 배정
+    for _, m, t, g in pending:
+        base = t - t % MIN
+        cands = [base + s * MIN for s in (-1, 0, 1, 2)]
+        cands = sorted((c for c in cands if abs(c - t) <= limit), key=lambda c: (abs(c - t), c))
+        chosen = next((c for c in cands if (m, c) not in occupied), None)
+        if chosen is None:  # 빈 분이 없으면 반올림 (3단계에서 겹친 행 정리)
+            chosen = int(pd.Timestamp(t).round("min").value)
+        group_minute[g] = chosen
+        occupied.add((m, chosen))
+
+    df["ts"] = pd.to_datetime(np.array([group_minute[g] for g in group_of], dtype=np.int64))
     return df
 
 
 def drop_dups(df: pd.DataFrame) -> pd.DataFrame:
     """(machine_id, ts) 중복 제거. 값이 다르면 나중에 수집된 것을 유지(재전송을 정정본으로 가정)"""
     return (
-        df.sort_values("collected_at")
+        _stable_order(df)
+        .sort_values("collected_at", kind="mergesort")
         .drop_duplicates(subset=["machine_id", "ts"], keep="last")
-        .sort_values(["machine_id", "ts"])
+        .sort_values(["machine_id", "ts"], kind="mergesort")
         .reset_index(drop=True)
     )
 
