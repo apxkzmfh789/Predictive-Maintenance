@@ -52,20 +52,25 @@ sim = (
     else pd.read_csv(path, parse_dates=["ts"])
 )
 sim["ts"] = pd.to_datetime(sim["ts"])
-sim = sim[~sim["is_gap"].astype(bool)].copy()
-print("정제된 시뮬레이터 데이터:", sim.shape)
+# 빈 행(재색인)은 라벨과 피처를 만든 뒤에 제외해야 "30분"이 실제 시간 기준이 됨
+print("정제된 시뮬레이터 데이터(빈 행 포함):", sim.shape)
 print("기간:", sim["ts"].min(), "~", sim["ts"].max())
 print(f"'지금 고장' 비율(감지 라벨) : {sim['machine_failure'].mean() * 100:.3f}%")
 
 sim = F.make_horizon_label(sim, horizon=HORIZON)
 print(f"'{HORIZON}분 내 고장' 비율(예지 라벨): {sim['y'].mean() * 100:.2f}%")
 print(f"""
-예지 라벨 = 다음 {HORIZON}행 구간의 최댓값
-  → t행과 t+1행은 라벨 창이 {HORIZON - 1}/{HORIZON} 겹쳐 라벨이 거의 같음""")
+예지 라벨 = 다음 {HORIZON}분 구간의 최댓값
+  → t분과 t+1분은 라벨 창이 {HORIZON - 1}/{HORIZON} 겹쳐 라벨이 거의 같음""")
 
 sim = F.build(sim, windows=(10, 30, 60), shift_one=True)
+sim = sim[~sim["is_gap"].astype(bool)].copy()
 feat = [c for c in F.feature_columns(sim) if c not in ("y", "machine_failure")]
-d = sim.dropna(subset=feat + ["y"]).sort_values("ts").reset_index(drop=True)
+d = (
+    sim.dropna(subset=feat + ["y"])
+    .sort_values(["ts", "machine_id"], kind="mergesort")
+    .reset_index(drop=True)
+)
 print(
     f"\n피처 {len(feat)}개 | 결측 제거 후 {len(d):,}행 "
     f"| 양성 {int(d['y'].sum()):,}건 ({d['y'].mean() * 100:.2f}%)"

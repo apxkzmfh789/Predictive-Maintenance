@@ -57,7 +57,10 @@ def add_rolling(
 def make_horizon_label(
     df: pd.DataFrame, horizon: int = 30, src: str = "machine_failure", out: str = "y"
 ) -> pd.DataFrame:
-    """예지 라벨: 다음 horizon행 안에 고장이 있으면 1 (현재 시점 제외)"""
+    """예지 라벨: 다음 horizon행 안에 고장이 있으면 1 (현재 시점 제외)
+
+    재색인된 1분 격자(빈 행 포함)에 적용해야 horizon행 = horizon분이 됨
+    """
     df = df.sort_values(["machine_id", "ts"]).copy()
 
     def fwd(s: pd.Series) -> pd.Series:

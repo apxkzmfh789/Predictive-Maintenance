@@ -2,7 +2,7 @@
 정제 파이프라인 (오염 주입의 역순으로 처리)
 
 1) 타입 강제
-2) 타임스탬프 분 단위 스냅
+2) 타임스탬프 분 단위 정렬 (흔들린 행은 가까운 빈 분으로)
 3) 중복 제거 (machine_id, ts 기준)
 4) 단위 통일 (온도 ℃→K, 진동 m/s²→mm/s)
 5) 물리 범위 밖 값 → NaN (행은 유지)
@@ -70,19 +70,72 @@ def coerce_types(df: pd.DataFrame) -> pd.DataFrame:
     return df.dropna(subset=["ts", "machine_id"])
 
 
-def snap_timestamp(df: pd.DataFrame, freq: str = "min") -> pd.DataFrame:
-    """초 단위로 흔들린 ts를 분 단위로 반올림"""
-    df = df.copy()
-    df["ts"] = df["ts"].dt.round(freq)
+MAX_JITTER_SEC = 90  # 시각 흔들림 허용 범위. 이보다 멀리 떨어진 분에는 배정하지 않음
+
+
+def _stable_order(df: pd.DataFrame) -> pd.DataFrame:
+    """입력 순서와 무관하게 항상 같은 순서로 정렬 (환경이 달라도 결과가 같도록)"""
+    keys = ["machine_id", "ts"] + [c for c in SENSOR_COLS if c in df.columns]
+    return df.sort_values(keys, kind="mergesort", na_position="last")
+
+
+def snap_timestamp(df: pd.DataFrame, max_jitter_sec: int = MAX_JITTER_SEC) -> pd.DataFrame:
+    """초 단위로 흔들린 ts를 분 격자에 맞춤
+
+    단순 반올림은 30초 넘게 흔들린 행을 이웃 분으로 보내 진짜 행과 겹치게 만듦.
+    1) 정각(초=0)으로 들어온 행은 제자리로 확정
+    2) 흔들린 행은 max_jitter_sec 안에서 가장 가까운 빈 분에 배정
+    3) 값이 완전히 같은 행(재전송)은 같은 분에 묶어 3단계에서 하나만 남김
+    """
+    df = _stable_order(df.copy())
+    if df.empty:
+        return df
+    vals = ["machine_id"] + [c for c in SENSOR_COLS + ["machine_failure"] if c in df.columns]
+    key = pd.util.hash_pandas_object(df[vals], index=False).to_numpy()
+    ts = df["ts"].to_numpy()
+    mid = df["machine_id"].to_numpy()
+    on_minute = (df["ts"] == df["ts"].dt.floor("min")).to_numpy()
+
+    group_min: dict = {}  # 같은 값 묶음 → 확정된 분
+    occupied: set = set()  # (설비, 분)
+    for k, m, t in zip(key[on_minute], mid[on_minute], ts[on_minute]):
+        if k not in group_min:
+            group_min[k] = t
+            occupied.add((m, t))
+
+    pending = []  # 아직 분이 정해지지 않은 흔들린 묶음 (대표 행 하나씩)
+    seen = set(group_min)
+    for k, m, t in zip(key[~on_minute], mid[~on_minute], ts[~on_minute]):
+        if k in seen:
+            continue
+        seen.add(k)
+        t = pd.Timestamp(t)
+        off = abs((t - t.round("min")).total_seconds())
+        pending.append((off, m, t, k))
+    pending.sort(key=lambda x: (x[0], x[1], x[2]))  # 분에 가까운 행부터 배정
+
+    limit = pd.Timedelta(seconds=max_jitter_sec)
+    for _, m, t, k in pending:
+        base = t.floor("min")
+        cands = [base + pd.Timedelta(minutes=s) for s in (-1, 0, 1, 2)]
+        cands = sorted((c for c in cands if abs(c - t) <= limit), key=lambda c: (abs(c - t), c))
+        chosen = next((c for c in cands if (m, c.to_datetime64()) not in occupied), None)
+        if chosen is None:  # 빈 분이 없으면 반올림 (3단계에서 겹친 행 정리)
+            chosen = t.round("min")
+        group_min[k] = chosen.to_datetime64()
+        occupied.add((m, chosen.to_datetime64()))
+
+    df["ts"] = pd.to_datetime([group_min[k] for k in key])
     return df
 
 
 def drop_dups(df: pd.DataFrame) -> pd.DataFrame:
     """(machine_id, ts) 중복 제거. 값이 다르면 나중에 수집된 것을 유지(재전송을 정정본으로 가정)"""
     return (
-        df.sort_values("collected_at")
+        _stable_order(df)
+        .sort_values("collected_at", kind="mergesort")
         .drop_duplicates(subset=["machine_id", "ts"], keep="last")
-        .sort_values(["machine_id", "ts"])
+        .sort_values(["machine_id", "ts"], kind="mergesort")
         .reset_index(drop=True)
     )
 
